@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<form method="post" action="{{ url_for('main.scan_now') }}">
+  <button type="submit">Scan now</button>
+</form>
+<p class="today">Today: {{ today.strftime('%A, %B %d, %Y') }}</p>
+
+{% if not rows %}
+  <p>No deals configured yet. Run <code>python seed.py</code> to add one.</p>
+{% endif %}
+
+<div class="deals">
+  {% for deal, activation in rows %}
+    <div class="deal-card {{ 'triggered' if activation and activation.triggered else '' }}">
+      <h2>{{ deal.restaurant }}</h2>
+      <h3>{{ deal.title }}</h3>
+      <p class="description">{{ deal.description }}</p>
+      <p class="team">Team: {{ deal.team.name }} &middot; Requires: {{ deal.location_requirement }} game</p>
+
+      {% if activation and activation.triggered %}
+        <p class="status status-active">UNLOCKED &mdash; {{ activation.detail }}</p>
+        {% if deal.redemption_code %}
+          <p class="redemption-code">Code: <code>{{ deal.redemption_code }}</code></p>
+        {% endif %}
+      {% elif activation %}
+        <p class="status status-inactive">{{ activation.detail or 'Checked, condition not met.' }}</p>
+      {% else %}
+        <p class="status status-inactive">Not checked yet.</p>
+      {% endif %}
+
+      {% if activation %}
+        <p class="checked-at">Last checked: {{ activation.checked_at.strftime('%I:%M %p') }} UTC</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

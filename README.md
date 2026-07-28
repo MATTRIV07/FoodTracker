@@ -1,0 +1,153 @@
+# FoodTracker
+
+Tracks sports-triggered fast food deals (e.g. "The Habit gives away a free
+Double Char burger any day the Dodgers turn a double play at home", "Panda
+Express offers a $7 Panda Plate any day the Dodgers win", "ONO Hawaiian BBQ
+offers a $6 plate lunch any day LAFC scores first in the first half of a home
+game", "Carl's Jr. gives away a Famous Star any day the Rams get an
+interception") and shows today's status, plus the redemption code, on a
+simple web page. No accounts, no login.
+
+## How it works
+
+- A background scanner polls a sports API on an interval and writes results
+  to SQLite. Three are wired up: the [MLB Stats API](https://statsapi.mlb.com)
+  for baseball, and [ESPN's public API](https://site.api.espn.com) for MLS
+  soccer and NFL football — all free, public, and require no API key.
+- The web page only ever reads from SQLite — it never calls a sports API on
+  page load. This keeps the page fast and it still shows the last-known state
+  even if a sports API is briefly unreachable.
+- Each `Team` has a `sport` (`MLB` / `MLS` / `NFL`), which `app/scanner.py`'s
+  `SPORT_ADAPTERS` maps to `app/mlb_api.py`, `app/mls_api.py`, or
+  `app/nfl_api.py`. The latter two are thin wrappers around
+  `app/espn_common.py` (MLS and NFL share the exact same ESPN JSON shape, just
+  different league paths). Every adapter exposes the same three functions —
+  `get_team_game_today`, `get_live_feed`, `normalize_game` — so `scan_deal`
+  doesn't need to know which sport it's looking at. Adding another sport means
+  writing a new adapter module with that same interface (or, if it's also on
+  ESPN, calling `espn_common.make_adapter("<league path>")`).
+- Each `Deal` is tied to a `Team` and a `condition_type` (`double_play`,
+  `team_win`, `pitching_strikeouts_7plus`, `scores_first_half`,
+  `interception`) plus a `location_requirement` (`home` / `away` / `any`) and
+  an optional `redemption_code` shown once the deal unlocks. New condition
+  types are added as a function in `app/scanner.py`'s `CONDITION_CHECKERS`
+  registry — no changes needed to the scan loop itself. A condition's feed
+  format is sport-specific (whatever its adapter's `get_live_feed` returns),
+  so a given condition_type only makes sense paired with teams from the sport
+  it was written for.
+- A `Deal.active` flag controls both scanning and display — set it `False`
+  for deals tied to a sport that's out of season (e.g. NFL deals added before
+  kickoff), and flip it back on once games are being played.
+- Conditions that depend on the final result (like `team_win`) only evaluate
+  once the game state is `Final` — a checker gets the current game state
+  passed in, so it can avoid triggering off a mid-game lead.
+- `DealActivation` rows are the daily scan result per deal (one row per
+  deal per calendar day). Once a deal triggers for the day it stays
+  "unlocked" even if a later poll misses re-detecting the play.
+
+## Setup
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python seed.py        # creates tables + seeds teams/deals from seed.py
+python wsgi.py         # runs the dev server on http://127.0.0.1:5000
+```
+
+Visit `http://127.0.0.1:5000`. Use the "Scan now" button to trigger an
+on-demand check instead of waiting for the interval.
+
+## Adding more deals
+
+Add an entry to the `DEALS` list in `seed.py` (add to `TEAMS` too if it's a
+new team), then re-run `python seed.py` — it only inserts what's missing, so
+it's safe to run repeatedly. You'll need the team's external id if it's not
+already in `TEAMS`:
+
+```
+curl "https://statsapi.mlb.com/api/v1/teams?sportId=1"                       # MLB
+curl "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.1/teams"      # MLS
+curl "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams"      # NFL
+```
+
+Note: exact promo terms (whether a deal is still running, home-only vs. any
+game, national vs. local-market) come from you — this project doesn't have a
+live source for restaurant promotions, only for game results.
+
+## Adding more condition types
+
+Currently implemented:
+- `double_play` (MLB) — team turns a double play on defense
+- `team_win` (MLB) — team wins; only checked once the game is Final
+- `pitching_strikeouts_7plus` (MLB) — team's pitching staff has 7+ strikeouts so far
+- `scores_first_half` (MLS) — team scores the match's first goal, in the first half
+- `interception` (NFL) — team's defense records an interception
+
+MLB's live game feed (`GET /api/v1.1/game/{gamePk}/feed/live`) exposes full
+play-by-play under `liveData.plays.allPlays[].result.eventType`, e.g.
+`grounded_into_double_play`, `strikeout_double_play`, `stolen_base_2b`,
+`home_run`; final score lives at `liveData.linescore.teams.{home,away}.runs`;
+team pitching totals (including strikeouts) live at
+`liveData.boxscore.teams.{home,away}.teamStats.pitching`.
+
+ESPN's MLS summary feed (`GET /summary?event={id}`) exposes a chronological
+`keyEvents` list; goals have `scoringPlay: true`, a `team.id`, and
+`period.number` (1 = first half, including stoppage time).
+
+ESPN's NFL summary feed exposes `drives.previous[].plays[]`; each play has a
+`type.text` (e.g. `"Pass Interception Return"`, `"Interception Return
+Touchdown"`) and a `teamParticipants` list where the entry with
+`type: "defense"` is the team credited with the play — that's true even for
+a pick-six, so no separate scoring-play check is needed.
+
+Add a new checker function with the same signature as
+`check_double_play(feed, team_external_id, team_is_home, game_state)` in
+`app/scanner.py`, then register it in `CONDITION_CHECKERS`.
+
+MLB, MLS, and NFL are wired up. A new sport needs a new adapter module (see
+"How it works" above) implementing `get_team_game_today`, `get_live_feed`,
+and `normalize_game`, then an entry in `SPORT_ADAPTERS`.
+
+## Email notifications
+
+When a deal flips to "unlocked," `app/notify.py` sends you an email via
+[Resend](https://resend.com) (a send-only API key — it can't read your
+inbox, unlike a Gmail App Password). Setup:
+
+1. Sign up free at resend.com and create an API key.
+2. Copy `.env.example` to `.env` (already gitignored) and fill in
+   `RESEND_API_KEY` and `NOTIFY_EMAIL_TO`.
+3. `config.py` loads `.env` automatically via `python-dotenv` — no need to
+   export env vars manually for local dev.
+
+If `RESEND_API_KEY` or `NOTIFY_EMAIL_TO` isn't set, notifications are
+silently skipped — the app works fine without them, this just adds an alert
+on top of the web page. On Render/Railway, set these as environment
+variables in the platform's dashboard instead of a `.env` file.
+
+## Configuration
+
+Environment variables (see `.env.example`):
+
+- `SCAN_INTERVAL_SECONDS` — how often the background scanner polls (default 300)
+- `SECRET_KEY` — Flask secret key
+- `DATABASE_URL` — defaults to a local SQLite file
+- `RESEND_API_KEY`, `NOTIFY_EMAIL_TO`, `NOTIFY_EMAIL_FROM` — see "Email notifications" above
+
+## Deploying (Render / Railway)
+
+Both platforms will pick up `Procfile` (`gunicorn wsgi:app`) and
+`requirements.txt` automatically. A `render.yaml` blueprint is included for
+Render.
+
+**Important:** the scanner runs in-process as a background thread inside the
+web process. Keep the process count at **1 worker** (already set in the
+`Procfile`) — running multiple workers would start multiple schedulers, each
+polling the sports API independently and writing duplicate/racy updates. For
+Render specifically, run `python seed.py` once during the build step (already
+wired into `render.yaml`) so the example deal exists on first deploy.
+
+SQLite lives on local disk, so on platforms with ephemeral filesystems
+(Render's free tier redeploys wipe disk) the DB resets on redeploy — the
+scanner will just repopulate it from live data within one scan interval.
