@@ -11,3 +11,4 @@ _adapter = make_adapter("soccer/usa.1")
 get_team_game_today = _adapter.get_team_game_today
 get_live_feed = _adapter.get_live_feed
 normalize_game = _adapter.normalize_game
+get_score = _adapter.get_score

@@ -90,6 +90,10 @@ button {
   font-weight: normal;
 }
 
+.status-pending {
+  color: #8a6d00;
+}
+
 .redemption-code {
   font-size: 0.9rem;
 }
@@ -99,6 +103,30 @@ button {
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
   font-weight: 600;
+}
+
+.window {
+  font-size: 0.85rem;
+  color: #555;
+  font-style: italic;
+}
+
+.score {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin: 0.4rem 0;
+}
+
+.score.winning {
+  color: var(--triggered-border);
+}
+
+.score.losing {
+  color: #c0392b;
+}
+
+.score.tied {
+  color: #555;
 }
 
 .checked-at {

@@ -10,26 +10,50 @@
 {% endif %}
 
 <div class="deals">
-  {% for deal, activation in rows %}
-    <div class="deal-card {{ 'triggered' if activation and activation.triggered else '' }}">
+  {% for deal, today_activation, redeemable_activation in rows %}
+    {% set redeemable = redeemable_activation and redeemable_activation.triggered %}
+    <div class="deal-card {{ 'triggered' if redeemable else '' }}">
       <h2>{{ deal.restaurant }}</h2>
       <h3>{{ deal.title }}</h3>
       <p class="description">{{ deal.description }}</p>
       <p class="team">Team: {{ deal.team.name }} &middot; Requires: {{ deal.location_requirement }} game</p>
 
-      {% if activation and activation.triggered %}
-        <p class="status status-active">UNLOCKED &mdash; {{ activation.detail }}</p>
+      {% if today_activation and today_activation.home_score is not none %}
+        {% set team_score = today_activation.home_score if today_activation.is_home else today_activation.away_score %}
+        {% set opp_score = today_activation.away_score if today_activation.is_home else today_activation.home_score %}
+        {% set team_abbr = today_activation.home_team if today_activation.is_home else today_activation.away_team %}
+        {% set opp_abbr = today_activation.away_team if today_activation.is_home else today_activation.home_team %}
+        {% set score_class = 'winning' if team_score > opp_score else ('losing' if team_score < opp_score else 'tied') %}
+        <p class="score {{ score_class }}">
+          {{ team_abbr }} {{ team_score }} &ndash; {{ opp_abbr }} {{ opp_score }}
+          &middot; {{ today_activation.game_state }}
+        </p>
+      {% endif %}
+
+      {% if redeemable %}
+        <p class="status status-active">
+          REDEEMABLE TODAY &mdash; {{ redeemable_activation.detail }}
+        </p>
         {% if deal.redemption_code %}
           <p class="redemption-code">Code: <code>{{ deal.redemption_code }}</code></p>
         {% endif %}
-      {% elif activation %}
-        <p class="status status-inactive">{{ activation.detail or 'Checked, condition not met.' }}</p>
+        {% if deal.redemption_window %}
+          <p class="window">{{ deal.redemption_window }}</p>
+        {% endif %}
+      {% endif %}
+
+      {% if today_activation and today_activation.triggered %}
+        <p class="status status-pending">
+          Condition met today &mdash; unlocks the code tomorrow, {{ tomorrow.strftime('%B %d') }}.
+        </p>
+      {% elif today_activation %}
+        <p class="status status-inactive">{{ today_activation.detail or 'Checked, condition not met.' }}</p>
       {% else %}
         <p class="status status-inactive">Not checked yet.</p>
       {% endif %}
 
-      {% if activation %}
-        <p class="checked-at">Last checked: {{ activation.checked_at.strftime('%I:%M %p') }} UTC</p>
+      {% if today_activation %}
+        <p class="checked-at">Last checked: {{ today_activation.checked_at.strftime('%I:%M %p') }} UTC</p>
       {% endif %}
     </div>
   {% endfor %}

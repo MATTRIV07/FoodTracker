@@ -10,6 +10,8 @@ import threading
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from sqlalchemy.exc import IntegrityError
+
 from app import db, mlb_api, mls_api, nfl_api, notify
 from app.models import Deal, DealActivation
 
@@ -129,9 +131,21 @@ CONDITION_CHECKERS = {
 
 def _get_or_create_activation(deal_id, game_date):
     activation = DealActivation.query.filter_by(deal_id=deal_id, game_date=game_date).first()
-    if activation is None:
-        activation = DealActivation(deal_id=deal_id, game_date=game_date)
-        db.session.add(activation)
+    if activation is not None:
+        return activation
+    # The select-then-insert above isn't atomic: the scheduled tick and a
+    # manual "Scan now" click (or, in dev, a reloader restart overlapping the
+    # outgoing process) can both find no row and both try to insert one. The
+    # _scan_lock only guards against that within a single process, so treat a
+    # UNIQUE-constraint loss as "someone else already created it" and re-fetch
+    # instead of failing the whole deal's scan.
+    activation = DealActivation(deal_id=deal_id, game_date=game_date)
+    db.session.add(activation)
+    try:
+        db.session.flush()
+    except IntegrityError:
+        db.session.rollback()
+        activation = DealActivation.query.filter_by(deal_id=deal_id, game_date=game_date).first()
     return activation
 
 
@@ -150,6 +164,8 @@ def scan_deal(deal, today):
     if raw_game is None:
         activation.game_id = None
         activation.game_state = None
+        activation.home_team = activation.home_score = None
+        activation.away_team = activation.away_score = None
         if not activation.triggered:
             activation.detail = "No game scheduled today."
         db.session.commit()
@@ -159,6 +175,19 @@ def scan_deal(deal, today):
     is_home = game["is_home"]
     activation.game_id = str(game["id"])
     activation.game_state = game["state"]
+    activation.is_home = is_home
+
+    # Fetch the live feed (and score) for any game that's started, regardless
+    # of whether this deal's location_requirement matches -- the score is
+    # worth showing even for a deal that can't trigger off today's game.
+    feed = None
+    if activation.game_state != "Preview":
+        feed = adapter.get_live_feed(game["id"])
+        score = adapter.get_score(feed)
+        activation.home_team = score["home_team"]
+        activation.home_score = score["home_score"]
+        activation.away_team = score["away_team"]
+        activation.away_score = score["away_score"]
 
     location_ok = (
         deal.location_requirement == "any"
@@ -186,7 +215,6 @@ def scan_deal(deal, today):
         db.session.commit()
         return
 
-    feed = adapter.get_live_feed(game["id"])
     triggered, detail = checker(feed, team.external_id, is_home, activation.game_state)
 
     # Sticky: once triggered, stays triggered for the day even if a later poll

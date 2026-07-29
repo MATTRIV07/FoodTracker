@@ -28,7 +28,8 @@ DEALS = [
         "team": "dodgers",
         "condition_type": "double_play",
         "location_requirement": "home",
-        "redemption_code": None,
+        "redemption_code": "DODGERS26",
+        "redemption_window": "Redeemable the next day only, until close of business.",
         "active": True,
     },
     {
@@ -39,6 +40,7 @@ DEALS = [
         "condition_type": "team_win",
         "location_requirement": "any",
         "redemption_code": "DODGERSWIN",
+        "redemption_window": "Redeemable the next day only, until 11:59 PM.",
         "active": True,
     },
     {
@@ -49,6 +51,7 @@ DEALS = [
         "condition_type": "scores_first_half",
         "location_requirement": "home",
         "redemption_code": "LAFCSCORES",
+        "redemption_window": "Redeemable the next business day only.",
         "active": True,
     },
     {
@@ -62,6 +65,7 @@ DEALS = [
         "condition_type": "pitching_strikeouts_7plus",
         "location_requirement": "any",
         "redemption_code": "GODODGERS26",
+        "redemption_window": "Redeemable the next day only.",
         "active": True,
     },
     {
@@ -72,6 +76,7 @@ DEALS = [
         "condition_type": "interception",
         "location_requirement": "any",
         "redemption_code": None,
+        "redemption_window": None,
         # NFL season hasn't started yet — flip to True once it has.
         "active": False,
     },
@@ -100,6 +105,7 @@ with app.app_context():
                 condition_type=d["condition_type"],
                 location_requirement=d["location_requirement"],
                 redemption_code=d["redemption_code"],
+                redemption_window=d["redemption_window"],
                 active=d["active"],
             )
             db.session.add(deal)

@@ -37,3 +37,14 @@ def normalize_game(game, team_external_id):
         "is_home": game["teams"]["home"]["team"]["id"] == team_external_id,
         "state": game["status"]["abstractGameState"],
     }
+
+
+def get_score(feed):
+    teams = feed.get("gameData", {}).get("teams", {})
+    runs = feed.get("liveData", {}).get("linescore", {}).get("teams", {})
+    return {
+        "home_team": teams.get("home", {}).get("abbreviation"),
+        "home_score": runs.get("home", {}).get("runs"),
+        "away_team": teams.get("away", {}).get("abbreviation"),
+        "away_score": runs.get("away", {}).get("runs"),
+    }

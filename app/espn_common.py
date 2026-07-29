@@ -57,8 +57,20 @@ def make_adapter(league_path):
         state = _STATE_MAP.get(comp["status"]["type"]["state"], "Preview")
         return {"id": event["id"], "is_home": is_home, "state": state}
 
+    def get_score(feed):
+        comp = feed["header"]["competitions"][0]
+        home = next(c for c in comp["competitors"] if c["homeAway"] == "home")
+        away = next(c for c in comp["competitors"] if c["homeAway"] == "away")
+        return {
+            "home_team": home["team"].get("abbreviation"),
+            "home_score": int(home["score"]) if home.get("score") is not None else None,
+            "away_team": away["team"].get("abbreviation"),
+            "away_score": int(away["score"]) if away.get("score") is not None else None,
+        }
+
     return SimpleNamespace(
         get_team_game_today=get_team_game_today,
         get_live_feed=get_live_feed,
         normalize_game=normalize_game,
+        get_score=get_score,
     )

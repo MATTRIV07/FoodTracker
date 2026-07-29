@@ -24,6 +24,10 @@ class Deal(db.Model):
     condition_type = db.Column(db.String(40), nullable=False)  # key into scanner.CONDITION_CHECKERS
     location_requirement = db.Column(db.String(10), nullable=False, default="home")  # home/away/any
     redemption_code = db.Column(db.String(40), nullable=True)  # promo code to show once unlocked
+    # Human-readable redemption window, e.g. "Redeemable the next day only, until
+    # close of business." Every deal we've checked unlocks the day *after* the
+    # qualifying game, not immediately -- see current_game_day()+1 in routes.py.
+    redemption_window = db.Column(db.Text, nullable=True)
     active = db.Column(db.Boolean, nullable=False, default=True)
 
     team = db.relationship("Team", backref="deals")
@@ -40,6 +44,11 @@ class DealActivation(db.Model):
     game_date = db.Column(db.Date, nullable=False, default=date.today)
     game_id = db.Column(db.String(40), nullable=True)  # sport-specific game/event id
     game_state = db.Column(db.String(20), nullable=True)  # Preview / Live / Final
+    is_home = db.Column(db.Boolean, nullable=True)  # was the tracked team playing at home
+    home_team = db.Column(db.String(10), nullable=True)  # abbreviation, e.g. "LAD"
+    home_score = db.Column(db.Integer, nullable=True)
+    away_team = db.Column(db.String(10), nullable=True)
+    away_score = db.Column(db.Integer, nullable=True)
     triggered = db.Column(db.Boolean, nullable=False, default=False)
     detail = db.Column(db.Text, nullable=True)
     checked_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
