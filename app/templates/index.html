@@ -18,7 +18,7 @@
       <p class="description">{{ deal.description }}</p>
       <p class="team">Team: {{ deal.team.name }} &middot; Requires: {{ deal.location_requirement }} game</p>
 
-      {% if today_activation and today_activation.home_score is not none %}
+      {% if today_activation and today_activation.home_score is not none and today_activation.away_score is not none %}
         {% set team_score = today_activation.home_score if today_activation.is_home else today_activation.away_score %}
         {% set opp_score = today_activation.away_score if today_activation.is_home else today_activation.home_score %}
         {% set team_abbr = today_activation.home_team if today_activation.is_home else today_activation.away_team %}

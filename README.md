@@ -151,3 +151,8 @@ wired into `render.yaml`) so the example deal exists on first deploy.
 SQLite lives on local disk, so on platforms with ephemeral filesystems
 (Render's free tier redeploys wipe disk) the DB resets on redeploy — the
 scanner will just repopulate it from live data within one scan interval.
+`render.yaml`'s build step explicitly `rm -f`s the SQLite file before
+reseeding rather than relying on that disk-wipe actually happening on every
+deploy — a model change (new column) landing on a build where the old file
+survived caused a 500 on every request, since `db.create_all()` only creates
+missing tables, not missing columns on an existing one.
