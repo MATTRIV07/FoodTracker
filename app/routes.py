@@ -1,16 +1,14 @@
-from datetime import date
-
 from flask import Blueprint, redirect, render_template, url_for
 
 from app.models import Deal, DealActivation
-from app.scanner import scan_all_active_deals
+from app.scanner import current_game_day, scan_all_active_deals
 
 bp = Blueprint("main", __name__)
 
 
 @bp.route("/")
 def index():
-    today = date.today()
+    today = current_game_day()
     deals = Deal.query.filter_by(active=True).all()
     rows = []
     for deal in deals:

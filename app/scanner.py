@@ -7,12 +7,26 @@ function + registry entry without touching the scan loop itself.
 
 import logging
 import threading
-from datetime import date, datetime
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app import db, mlb_api, mls_api, nfl_api, notify
 from app.models import Deal, DealActivation
 
 logger = logging.getLogger(__name__)
+
+# All tracked teams (Dodgers, LAFC, Rams) play their home games on LA time, so
+# "today" for game-lookup purposes must be the Pacific calendar day, not the
+# server's local date. On a UTC-clocked host (e.g. Render), the server's date
+# rolls over to the next day around 5pm Pacific -- right as most home games
+# are starting -- which would otherwise make the scanner look up the wrong
+# day's game for the rest of the night.
+GAME_DAY_TZ = ZoneInfo("America/Los_Angeles")
+
+
+def current_game_day():
+    return datetime.now(GAME_DAY_TZ).date()
+
 
 # Guards against the periodic scheduler tick and a manual "Scan now" click
 # racing each other: both would otherwise try to insert the same
@@ -195,7 +209,7 @@ def scan_all_active_deals():
         logger.info("Scan already in progress, skipping this trigger.")
         return
     try:
-        today = date.today()
+        today = current_game_day()
         deals = Deal.query.filter_by(active=True).all()
         for deal in deals:
             deal_id = deal.id
