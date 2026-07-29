@@ -1,11 +1,17 @@
+import re
+import secrets
 from datetime import timedelta
 
-from flask import Blueprint, redirect, render_template, url_for
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from sqlalchemy.exc import IntegrityError
 
-from app.models import Deal, DealActivation
+from app import db
+from app.models import Deal, DealActivation, Subscriber
 from app.scanner import current_game_day, scan_all_active_deals
 
 bp = Blueprint("main", __name__)
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 @bp.route("/")
@@ -28,4 +34,34 @@ def index():
 @bp.route("/scan-now", methods=["POST"])
 def scan_now():
     scan_all_active_deals()
+    return redirect(url_for("main.index"))
+
+
+@bp.route("/subscribe", methods=["POST"])
+def subscribe():
+    email = request.form.get("email", "").strip().lower()
+    if not _EMAIL_RE.match(email):
+        flash("That doesn't look like a valid email address.", "error")
+        return redirect(url_for("main.index"))
+
+    subscriber = Subscriber(email=email, unsubscribe_token=secrets.token_urlsafe(32))
+    db.session.add(subscriber)
+    try:
+        db.session.commit()
+        flash(f"Subscribed — reward notifications will go to {email}.", "success")
+    except IntegrityError:
+        db.session.rollback()
+        flash(f"{email} is already subscribed.", "info")
+    return redirect(url_for("main.index"))
+
+
+@bp.route("/unsubscribe/<token>")
+def unsubscribe(token):
+    subscriber = Subscriber.query.filter_by(unsubscribe_token=token).first()
+    if subscriber is None:
+        flash("Unsubscribe link not recognized — you may already be unsubscribed.", "info")
+        return redirect(url_for("main.index"))
+    db.session.delete(subscriber)
+    db.session.commit()
+    flash(f"{subscriber.email} has been unsubscribed.", "success")
     return redirect(url_for("main.index"))

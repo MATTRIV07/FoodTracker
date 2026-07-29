@@ -4,6 +4,15 @@
   <button type="submit">Scan now</button>
 </form>
 <p id="scan-status" class="scan-status" aria-live="polite"></p>
+
+<form method="post" action="{{ url_for('main.subscribe') }}" class="subscribe-form">
+  <label for="email">Get an email when any deal unlocks:</label>
+  <div class="subscribe-row">
+    <input type="email" id="email" name="email" placeholder="you@example.com" required>
+    <button type="submit">Notify me</button>
+  </div>
+</form>
+
 <p class="today">Today: {{ today.strftime('%A, %B %d, %Y') }}</p>
 
 {% if not rows %}

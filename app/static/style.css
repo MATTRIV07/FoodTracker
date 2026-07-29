@@ -44,6 +44,63 @@ button {
   margin: 0.3rem 0 0;
 }
 
+.subscribe-form {
+  margin: 1rem 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+
+.subscribe-form label {
+  display: block;
+  font-size: 0.9rem;
+  color: #555;
+  margin-bottom: 0.4rem;
+}
+
+.subscribe-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.subscribe-row input[type="email"] {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  font-size: 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 4px;
+  min-width: 0;
+}
+
+.flashes {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+
+.flash {
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.flash-success {
+  background: var(--triggered-bg);
+  color: var(--triggered-border);
+}
+
+.flash-error {
+  background: #fbe4e2;
+  color: #c0392b;
+}
+
+.flash-info {
+  background: #eef2f7;
+  color: #444;
+}
+
 .deals {
   display: flex;
   flex-direction: column;

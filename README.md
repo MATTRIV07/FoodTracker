@@ -111,28 +111,39 @@ and `normalize_game`, then an entry in `SPORT_ADAPTERS`.
 
 ## Email notifications
 
-When a deal flips to "unlocked," `app/notify.py` sends you an email via
+When a deal flips to "unlocked," `app/notify.py` sends an email via
 [Resend](https://resend.com) (a send-only API key — it can't read your
-inbox, unlike a Gmail App Password). Setup:
+inbox, unlike a Gmail App Password) to every recipient in the mailing list.
+Setup:
 
 1. Sign up free at resend.com and create an API key.
 2. Copy `.env.example` to `.env` (already gitignored) and fill in
-   `RESEND_API_KEY` and `NOTIFY_EMAIL_TO`.
+   `RESEND_API_KEY`.
 3. `config.py` loads `.env` automatically via `python-dotenv` — no need to
    export env vars manually for local dev.
 
-If `RESEND_API_KEY` or `NOTIFY_EMAIL_TO` isn't set, notifications are
-silently skipped — the app works fine without them, this just adds an alert
-on top of the web page. On Render/Railway, set these as environment
-variables in the platform's dashboard instead of a `.env` file.
+The recipient list is `NOTIFY_EMAIL_TO` (an always-on owner address set via
+env var, optional) plus everyone who signs up through the "Get an email when
+any deal unlocks" form on the site itself — those are stored in the
+`Subscriber` table and each gets a one-click unsubscribe link in every email
+(`/unsubscribe/<token>`, no login needed). Recipients get one email each
+(not a single email with multiple `to` addresses), so a bad address can't
+block anyone else's notification and subscribers never see each other's
+emails.
+
+If `RESEND_API_KEY` isn't set, or there are no recipients at all,
+notifications are silently skipped — the app works fine without them, this
+just adds an alert on top of the web page. On Render/Railway, set env vars
+in the platform's dashboard instead of a `.env` file.
 
 ## Configuration
 
 Environment variables (see `.env.example`):
 
 - `SCAN_INTERVAL_SECONDS` — how often the background scanner polls (default 300)
-- `SECRET_KEY` — Flask secret key
+- `SECRET_KEY` — Flask secret key (also signs the flash-message session cookie)
 - `DATABASE_URL` — defaults to a local SQLite file
+- `SITE_URL` — public base URL, used to build unsubscribe links (default `http://127.0.0.1:5001`)
 - `RESEND_API_KEY`, `NOTIFY_EMAIL_TO`, `NOTIFY_EMAIL_FROM` — see "Email notifications" above
 
 ## Deploying (Render / Railway)

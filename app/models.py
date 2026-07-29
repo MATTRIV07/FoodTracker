@@ -59,3 +59,15 @@ class DealActivation(db.Model):
     deal = db.relationship("Deal", backref="activations")
 
     __table_args__ = (db.UniqueConstraint("deal_id", "game_date"),)
+
+
+class Subscriber(db.Model):
+    """An email address that gets notified when any active deal unlocks."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), nullable=False, unique=True)
+    unsubscribe_token = db.Column(db.String(43), nullable=False, unique=True)
+    subscribed_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Subscriber {self.email}>"
