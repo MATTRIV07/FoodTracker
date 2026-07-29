@@ -7,7 +7,7 @@ function + registry entry without touching the scan loop itself.
 
 import logging
 import threading
-from datetime import date
+from datetime import date, datetime
 
 from app import db, mlb_api, mls_api, nfl_api, notify
 from app.models import Deal, DealActivation
@@ -124,6 +124,7 @@ def _get_or_create_activation(deal_id, game_date):
 def scan_deal(deal, today):
     team = deal.team
     activation = _get_or_create_activation(deal.id, today)
+    activation.checked_at = datetime.utcnow()
 
     adapter = SPORT_ADAPTERS.get(team.sport)
     if adapter is None:
@@ -202,5 +203,6 @@ def scan_all_active_deals():
                 scan_deal(deal, today)
             except Exception:
                 logger.exception("Failed to scan deal id=%s", deal_id)
+                db.session.rollback()
     finally:
         _scan_lock.release()
