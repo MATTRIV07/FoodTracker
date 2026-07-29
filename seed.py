@@ -30,6 +30,11 @@ DEALS = [
         "location_requirement": "home",
         "redemption_code": "DODGERS26",
         "redemption_window": "Redeemable the next day only, until close of business.",
+        "how_to_redeem": (
+            "Log into the Habit app or website (MyHabit account), open My "
+            "Offers, enter the code, and add a Double Char plus $8+ in other "
+            "items to your order."
+        ),
         "active": True,
     },
     {
@@ -41,6 +46,11 @@ DEALS = [
         "location_requirement": "any",
         "redemption_code": "DODGERSWIN",
         "redemption_window": "Redeemable the next day only, until 11:59 PM.",
+        "how_to_redeem": (
+            "Order through the Panda Express app or website (Panda Rewards "
+            "account), pick a 2-entree Panda Plate, and enter the code at "
+            "checkout."
+        ),
         "active": True,
     },
     {
@@ -52,6 +62,10 @@ DEALS = [
         "location_requirement": "home",
         "redemption_code": "LAFCSCORES",
         "redemption_window": "Redeemable the next business day only.",
+        "how_to_redeem": (
+            "Online orders only via onohawaiianbbq.com (registered account "
+            "required) — enter the code at checkout."
+        ),
         "active": True,
     },
     {
@@ -66,6 +80,7 @@ DEALS = [
         "location_requirement": "any",
         "redemption_code": "GODODGERS26",
         "redemption_window": "Redeemable the next day only.",
+        "how_to_redeem": "Redeem in-store or via the Jack in the Box app using the code.",
         "active": True,
     },
     {
@@ -77,6 +92,7 @@ DEALS = [
         "location_requirement": "any",
         "redemption_code": None,
         "redemption_window": None,
+        "how_to_redeem": None,
         # NFL season hasn't started yet — flip to True once it has.
         "active": False,
     },
@@ -106,6 +122,7 @@ with app.app_context():
                 location_requirement=d["location_requirement"],
                 redemption_code=d["redemption_code"],
                 redemption_window=d["redemption_window"],
+                how_to_redeem=d["how_to_redeem"],
                 active=d["active"],
             )
             db.session.add(deal)

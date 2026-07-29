@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
-<form method="post" action="{{ url_for('main.scan_now') }}">
+<form id="scan-form" method="post" action="{{ url_for('main.scan_now') }}">
   <button type="submit">Scan now</button>
 </form>
+<p id="scan-status" class="scan-status" aria-live="polite"></p>
 <p class="today">Today: {{ today.strftime('%A, %B %d, %Y') }}</p>
 
 {% if not rows %}
@@ -12,7 +13,8 @@
 <div class="deals">
   {% for deal, today_activation, redeemable_activation in rows %}
     {% set redeemable = redeemable_activation and redeemable_activation.triggered %}
-    <div class="deal-card {{ 'triggered' if redeemable else '' }}">
+    {% set met_today = today_activation and today_activation.triggered %}
+    <div class="deal-card {{ 'triggered' if (redeemable or met_today) else '' }}">
       <h2>{{ deal.restaurant }}</h2>
       <h3>{{ deal.title }}</h3>
       <p class="description">{{ deal.description }}</p>
@@ -30,22 +32,33 @@
         </p>
       {% endif %}
 
-      {% if redeemable %}
-        <p class="status status-active">
-          REDEEMABLE TODAY &mdash; {{ redeemable_activation.detail }}
-        </p>
-        {% if deal.redemption_code %}
-          <p class="redemption-code">Code: <code>{{ deal.redemption_code }}</code></p>
-        {% endif %}
-        {% if deal.redemption_window %}
-          <p class="window">{{ deal.redemption_window }}</p>
-        {% endif %}
-      {% endif %}
-
-      {% if today_activation and today_activation.triggered %}
-        <p class="status status-pending">
-          Condition met today &mdash; unlocks the code tomorrow, {{ tomorrow.strftime('%B %d') }}.
-        </p>
+      {% if redeemable or met_today %}
+        <div class="reward">
+          {% if redeemable %}
+            <p class="status status-active">
+              REDEEMABLE NOW &mdash; {{ redeemable_activation.detail }}
+            </p>
+          {% else %}
+            <p class="status status-pending">
+              CONDITION MET TODAY &mdash; {{ today_activation.detail }}
+            </p>
+          {% endif %}
+          {% if deal.redemption_code %}
+            <p class="redemption-code">Code: <code>{{ deal.redemption_code }}</code></p>
+          {% endif %}
+          {% if deal.redemption_window %}
+            <p class="window">
+              {% if redeemable %}
+                Valid today &mdash; {{ deal.redemption_window }}
+              {% else %}
+                Unlocks tomorrow, {{ tomorrow.strftime('%B %d') }} &mdash; {{ deal.redemption_window }}
+              {% endif %}
+            </p>
+          {% endif %}
+          {% if deal.how_to_redeem %}
+            <p class="how-to-redeem">{{ deal.how_to_redeem }}</p>
+          {% endif %}
+        </div>
       {% elif today_activation %}
         <p class="status status-inactive">{{ today_activation.detail or 'Checked, condition not met.' }}</p>
       {% else %}

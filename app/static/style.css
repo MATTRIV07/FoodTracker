@@ -37,6 +37,13 @@ button {
   color: #666;
 }
 
+.scan-status {
+  font-size: 0.85rem;
+  color: #666;
+  min-height: 1.2em;
+  margin: 0.3rem 0 0;
+}
+
 .deals {
   display: flex;
   flex-direction: column;
@@ -105,10 +112,24 @@ button {
   font-weight: 600;
 }
 
+.reward {
+  margin: 0.5rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.04);
+}
+
 .window {
   font-size: 0.85rem;
   color: #555;
   font-style: italic;
+}
+
+.how-to-redeem {
+  font-size: 0.85rem;
+  color: #444;
+  margin-top: 0.4rem;
+  margin-bottom: 0;
 }
 
 .score {
@@ -127,6 +148,19 @@ button {
 
 .score.tied {
   color: #555;
+}
+
+.score.score-flash {
+  animation: score-flash 1.5s ease-out;
+}
+
+@keyframes score-flash {
+  0% {
+    background: #fff3b0;
+  }
+  100% {
+    background: transparent;
+  }
 }
 
 .checked-at {

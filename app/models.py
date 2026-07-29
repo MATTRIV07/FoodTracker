@@ -28,6 +28,9 @@ class Deal(db.Model):
     # close of business." Every deal we've checked unlocks the day *after* the
     # qualifying game, not immediately -- see current_game_day()+1 in routes.py.
     redemption_window = db.Column(db.Text, nullable=True)
+    # Brief instructions for actually claiming it, e.g. "Redeem via the app —
+    # Rewards account required." Restaurant-specific, from each promo's terms.
+    how_to_redeem = db.Column(db.Text, nullable=True)
     active = db.Column(db.Boolean, nullable=False, default=True)
 
     team = db.relationship("Team", backref="deals")
