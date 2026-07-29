@@ -2,7 +2,7 @@ services:
   - type: web
     name: foodtracker
     env: python
-    buildCommand: pip install -r requirements.txt && rm -f food_deals.db && python seed.py
+    buildCommand: pip install -r requirements.txt && python seed.py
     startCommand: gunicorn wsgi:app --workers 1 --threads 4 --bind 0.0.0.0:$PORT
     envVars:
       - key: SCAN_INTERVAL_SECONDS

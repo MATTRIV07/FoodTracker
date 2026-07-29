@@ -1,12 +1,46 @@
 import atexit
+import logging
 import os
 from datetime import datetime
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect
 from apscheduler.schedulers.background import BackgroundScheduler
 
 db = SQLAlchemy()
+
+logger = logging.getLogger(__name__)
+
+
+def _ensure_schema():
+    """db.create_all() only creates tables that don't exist yet -- it never
+    ALTERs an existing table to add a new column. Deploying a model change
+    (e.g. a new Deal/DealActivation column) against a database that survived
+    from a previous deploy would otherwise leave the live table missing that
+    column, and every query touching it starts raising OperationalError. If
+    that's happened, drop and recreate everything rather than 500 on every
+    request -- daily scan data and Team/Deal rows self-repopulate from seed.py
+    and the next scan, but this does mean Subscriber rows don't survive a
+    deploy that changes the schema.
+    """
+    inspector = inspect(db.engine)
+    existing_tables = set(inspector.get_table_names())
+    for table in db.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        live_columns = {col["name"] for col in inspector.get_columns(table.name)}
+        expected_columns = {col.name for col in table.columns}
+        missing = expected_columns - live_columns
+        if missing:
+            logger.warning(
+                "Schema drift on table=%s missing=%s -- dropping and recreating.",
+                table.name,
+                missing,
+            )
+            db.drop_all()
+            break
+    db.create_all()
 
 
 def create_app(start_background_scanner=True):
@@ -19,7 +53,7 @@ def create_app(start_background_scanner=True):
     app.register_blueprint(bp)
 
     with app.app_context():
-        db.create_all()
+        _ensure_schema()
 
     if start_background_scanner:
         # Under `flask run --debug`, Werkzeug's reloader loads this module twice

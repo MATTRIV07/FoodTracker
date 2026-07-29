@@ -159,11 +159,17 @@ polling the sports API independently and writing duplicate/racy updates. For
 Render specifically, run `python seed.py` once during the build step (already
 wired into `render.yaml`) so the example deal exists on first deploy.
 
-SQLite lives on local disk, so on platforms with ephemeral filesystems
-(Render's free tier redeploys wipe disk) the DB resets on redeploy — the
-scanner will just repopulate it from live data within one scan interval.
-`render.yaml`'s build step explicitly `rm -f`s the SQLite file before
-reseeding rather than relying on that disk-wipe actually happening on every
-deploy — a model change (new column) landing on a build where the old file
-survived caused a 500 on every request, since `db.create_all()` only creates
-missing tables, not missing columns on an existing one.
+SQLite lives on local disk. On a platform with a truly ephemeral filesystem
+the DB resets on every redeploy and the scanner just repopulates it from
+live data within one scan interval — but that turned out not to be a safe
+assumption to build on: a deploy that added a model column, landing on a
+build where the previous SQLite file survived, 500'd on every request
+because `db.create_all()` only creates missing tables, it doesn't ALTER an
+existing one to add a column. `app/__init__.py`'s `_ensure_schema()` now
+checks the live table columns against the models on every startup and drops
++ recreates the database only if something's actually missing, instead of
+either assuming the disk resets or unconditionally wiping it. This means
+`Team`/`Deal`/`DealActivation` rows (already designed to be disposable) and
+`Subscriber` rows (not disposable — that's your mailing list) survive any
+deploy that doesn't change the schema, and only get reset on a deploy that
+does.
