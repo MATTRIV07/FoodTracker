@@ -211,9 +211,20 @@ with app.app_context():
             print(f"Added team: {info['name']}")
         team_objs[key] = team
 
+    # Matched on (restaurant, team, condition_type) rather than including
+    # title -- that's a deal's stable identity, while title/description/
+    # price/etc. are presentational details we sometimes need to correct
+    # (e.g. a price fix) without that correction being mistaken for a new
+    # deal and creating a duplicate row.
+    UPDATABLE_FIELDS = [
+        "title", "description", "location_requirement", "redemption_code",
+        "redemption_window", "how_to_redeem", "active",
+    ]
     for d in DEALS:
         team = team_objs[d["team"]]
-        existing = Deal.query.filter_by(restaurant=d["restaurant"], title=d["title"], team_id=team.id).first()
+        existing = Deal.query.filter_by(
+            restaurant=d["restaurant"], team_id=team.id, condition_type=d["condition_type"]
+        ).first()
         if existing is None:
             deal = Deal(
                 restaurant=d["restaurant"],
@@ -231,4 +242,11 @@ with app.app_context():
             db.session.commit()
             print(f"Added deal: {d['restaurant']} / {d['title']}")
         else:
-            print(f"Deal already exists: {d['restaurant']} / {d['title']}")
+            changed = [f for f in UPDATABLE_FIELDS if getattr(existing, f) != d[f]]
+            if changed:
+                for f in changed:
+                    setattr(existing, f, d[f])
+                db.session.commit()
+                print(f"Updated deal: {d['restaurant']} / {d['title']} (changed: {', '.join(changed)})")
+            else:
+                print(f"Deal unchanged: {d['restaurant']} / {d['title']}")
