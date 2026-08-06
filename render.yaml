@@ -25,3 +25,18 @@ services:
         fromDatabase:
           name: foodtracker-db
           property: connectionString
+      # These three are already set manually in the Render dashboard (not
+      # provisioned by this Blueprint) -- listed here with sync: false purely
+      # so the full set of env vars this app needs is documented in one
+      # place. Render ignores sync: false entries on an existing service, so
+      # editing these values here has no effect; change them in the
+      # dashboard instead. See README.md's "Email notifications" section.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: NOTIFY_EMAIL_TO
+        sync: false
+      # Flip this from the resend.dev sandbox default to an address on a
+      # verified domain once one exists -- see README.md's "Turning off
+      # sandbox mode."
+      - key: NOTIFY_EMAIL_FROM
+        sync: false

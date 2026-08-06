@@ -31,4 +31,12 @@ class Config:
     # Notifications are skipped (not an error) if these aren't set.
     RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
     NOTIFY_EMAIL_TO = os.environ.get("NOTIFY_EMAIL_TO")
+    # onboarding@resend.dev is Resend's shared sandbox address -- while this
+    # is the active value, Resend will only deliver to the account owner's
+    # own address, regardless of who's in the Subscriber table. Once a
+    # domain is verified in the Resend dashboard, change this env var to an
+    # address on that domain (e.g. "FoodTracker <deals@yourdomain.com>") to
+    # start actually delivering to subscribers. See README.md's "Turning off
+    # sandbox mode" section. app/__init__.py logs a warning at boot if this
+    # is still the sandbox default while RESEND_API_KEY is set.
     NOTIFY_EMAIL_FROM = os.environ.get("NOTIFY_EMAIL_FROM", "FoodTracker <onboarding@resend.dev>")

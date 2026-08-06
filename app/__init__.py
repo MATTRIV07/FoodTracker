@@ -64,6 +64,19 @@ def _set_security_headers(response):
     return response
 
 
+def _warn_if_sandbox_from_address(app):
+    """Resend's sandbox address only delivers to the account owner, silently
+    dropping every Subscriber. Easy to forget to flip after verifying a
+    domain, so make it loud in the logs rather than a quiet no-op."""
+    if app.config.get("RESEND_API_KEY") and "resend.dev" in (app.config.get("NOTIFY_EMAIL_FROM") or ""):
+        logger.warning(
+            "RESEND_API_KEY is set but NOTIFY_EMAIL_FROM is still the resend.dev "
+            "sandbox address -- Resend will only deliver to the account owner, "
+            "not to Subscriber rows. Verify a domain in Resend and update "
+            "NOTIFY_EMAIL_FROM to an address on it (see README.md)."
+        )
+
+
 def create_app(start_background_scanner=True):
     app = Flask(__name__)
     app.config.from_object("config.Config")
@@ -71,6 +84,7 @@ def create_app(start_background_scanner=True):
     db.init_app(app)
     limiter.init_app(app)
     app.after_request(_set_security_headers)
+    _warn_if_sandbox_from_address(app)
 
     from app.routes import bp
     app.register_blueprint(bp)
