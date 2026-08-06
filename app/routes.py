@@ -5,7 +5,7 @@ from datetime import timedelta
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy.exc import IntegrityError
 
-from app import db
+from app import db, limiter
 from app.models import Deal, DealActivation, Subscriber
 from app.scanner import current_game_day, scan_all_active_deals
 
@@ -32,12 +32,14 @@ def index():
 
 
 @bp.route("/scan-now", methods=["POST"])
+@limiter.limit("10 per minute")
 def scan_now():
     scan_all_active_deals()
     return redirect(url_for("main.index"))
 
 
 @bp.route("/subscribe", methods=["POST"])
+@limiter.limit("5 per hour")
 def subscribe():
     email = request.form.get("email", "").strip().lower()
     if not _EMAIL_RE.match(email):
@@ -55,7 +57,23 @@ def subscribe():
     return redirect(url_for("main.index"))
 
 
-@bp.route("/unsubscribe/<token>")
+@bp.route("/unsubscribe/<token>", methods=["GET"])
+@limiter.limit("20 per hour")
+def unsubscribe_confirm(token):
+    # A bare GET that unsubscribes immediately is a known email-link pitfall:
+    # corporate link scanners and mail-client "safe links" prefetchers issue
+    # real GET requests to every link in an email before a human ever clicks,
+    # silently unsubscribing people who never asked to be. GET here only
+    # shows a confirmation page; the actual removal happens on POST below.
+    subscriber = Subscriber.query.filter_by(unsubscribe_token=token).first()
+    if subscriber is None:
+        flash("Unsubscribe link not recognized — you may already be unsubscribed.", "info")
+        return redirect(url_for("main.index"))
+    return render_template("unsubscribe_confirm.html", subscriber=subscriber, token=token)
+
+
+@bp.route("/unsubscribe/<token>", methods=["POST"])
+@limiter.limit("20 per hour")
 def unsubscribe(token):
     subscriber = Subscriber.query.filter_by(unsubscribe_token=token).first()
     if subscriber is None:

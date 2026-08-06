@@ -4,11 +4,19 @@ import os
 from datetime import datetime
 
 from flask import Flask
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect
 from apscheduler.schedulers.background import BackgroundScheduler
 
 db = SQLAlchemy()
+# In-memory storage is fine as long as we stay on a single gunicorn worker
+# (see render.yaml's --workers 1) -- each worker would otherwise track
+# limits separately, undermining the limit. Set explicitly to silence
+# Flask-Limiter's "no storage configured" warning -- this is a deliberate
+# choice, not an oversight.
+limiter = Limiter(key_func=get_remote_address, storage_uri="memory://")
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +51,26 @@ def _ensure_schema():
     db.create_all()
 
 
+def _set_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # No inline scripts/styles and no external resources anywhere in the
+    # templates (checked 2026-08-05) -- default-src 'self' covers everything.
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    # Only meaningful over HTTPS (which is how Render serves this), and
+    # harmless to send otherwise -- browsers ignore it on plain HTTP.
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+    return response
+
+
 def create_app(start_background_scanner=True):
     app = Flask(__name__)
     app.config.from_object("config.Config")
 
     db.init_app(app)
+    limiter.init_app(app)
+    app.after_request(_set_security_headers)
 
     from app.routes import bp
     app.register_blueprint(bp)

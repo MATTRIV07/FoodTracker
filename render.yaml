@@ -7,3 +7,5 @@ services:
     envVars:
       - key: SCAN_INTERVAL_SECONDS
         value: "300"
+      - key: SECRET_KEY
+        generateValue: true

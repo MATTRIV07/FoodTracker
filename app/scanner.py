@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import IntegrityError
 
-from app import db, mlb_api, mls_api, nfl_api, notify
+from app import db, mlb_api, mls_api, nba_api, nfl_api, nhl_api, notify
 from app.models import Deal, DealActivation
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,8 @@ SPORT_ADAPTERS = {
     "MLB": mlb_api,
     "MLS": mls_api,
     "NFL": nfl_api,
+    "NBA": nba_api,
+    "NHL": nhl_api,
 }
 
 
@@ -120,12 +122,75 @@ def check_interception(feed, team_external_id, team_is_home, game_state):
     return False, None
 
 
+def check_team_runs_6plus(feed, team_external_id, team_is_home, game_state):
+    """True if `team` has scored 6+ runs so far in the game (MLB linescore)."""
+    side = "home" if team_is_home else "away"
+    runs = feed.get("liveData", {}).get("linescore", {}).get("teams", {}).get(side, {}).get("runs")
+    if runs is None or runs < 6:
+        return False, None
+    return True, f"Scored {runs} runs."
+
+
+def check_steals_base(feed, team_external_id, team_is_home, game_state):
+    """True if `team` has recorded a stolen base so far in the game (MLB boxscore batting stats)."""
+    side = "home" if team_is_home else "away"
+    stats = (
+        feed.get("liveData", {})
+        .get("boxscore", {})
+        .get("teams", {})
+        .get(side, {})
+        .get("teamStats", {})
+        .get("batting", {})
+    )
+    stolen_bases = stats.get("stolenBases")
+    if not stolen_bases:
+        return False, None
+    return True, f"Stole {stolen_bases} base{'s' if stolen_bases != 1 else ''}."
+
+
+def check_espn_team_win(feed, team_external_id, team_is_home, game_state):
+    """True if `team` won, using ESPN's summary feed shape (NFL/MLS/NBA/NHL adapters).
+
+    Separate from check_team_win, which reads the MLB Stats API's differently
+    shaped linescore -- both are registered under distinct condition_types so
+    existing MLB deals (e.g. team_win) are unaffected.
+    """
+    if game_state != "Final":
+        return False, None
+    comp = feed.get("header", {}).get("competitions", [{}])[0]
+    competitors = comp.get("competitors", [])
+    home = next((c for c in competitors if c.get("homeAway") == "home"), None)
+    away = next((c for c in competitors if c.get("homeAway") == "away"), None)
+    if not home or not away or home.get("score") is None or away.get("score") is None:
+        return False, None
+    home_score, away_score = int(home["score"]), int(away["score"])
+    if home_score == away_score:
+        return False, None
+    team_score, opp_score = (home_score, away_score) if team_is_home else (away_score, home_score)
+    if team_score > opp_score:
+        return True, f"Final: won {team_score}-{opp_score}."
+    return False, None
+
+
+def check_scores_goal(feed, team_external_id, team_is_home, game_state):
+    """True if `team` has scored at least one goal so far in the match (any period)."""
+    goals = [e for e in feed.get("keyEvents", []) if e.get("scoringPlay")]
+    for goal in goals:
+        if str(goal.get("team", {}).get("id")) == str(team_external_id):
+            return True, goal.get("text", "Scored a goal.")
+    return False, None
+
+
 CONDITION_CHECKERS = {
     "double_play": check_double_play,
     "team_win": check_team_win,
     "scores_first_half": check_scores_first_half,
     "interception": check_interception,
     "pitching_strikeouts_7plus": check_pitching_strikeouts_7plus,
+    "team_runs_6plus": check_team_runs_6plus,
+    "steals_base": check_steals_base,
+    "espn_team_win": check_espn_team_win,
+    "scores_goal": check_scores_goal,
 }
 
 

@@ -1,4 +1,5 @@
 import os
+import secrets
 
 from dotenv import load_dotenv
 
@@ -12,7 +13,13 @@ class Config:
         "DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'food_deals.db')}"
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
+    # A hardcoded fallback here would let anyone forge session/flash cookies
+    # on any deploy that forgot to set SECRET_KEY. Generate a random one at
+    # boot instead -- sessions here are only used for one-request flash
+    # messages, so a value that changes across restarts costs nothing. Set
+    # SECRET_KEY explicitly in the environment for any deploy that needs
+    # sessions to survive a process restart.
+    SECRET_KEY = os.environ.get("SECRET_KEY") or secrets.token_hex(32)
     SCAN_INTERVAL_SECONDS = int(os.environ.get("SCAN_INTERVAL_SECONDS", 300))
 
     # Base URL used to build unsubscribe links in notification emails. Can't
