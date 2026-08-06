@@ -1,3 +1,15 @@
+databases:
+  # Free Postgres instances expire after 30 days, and a plain web service's
+  # local disk isn't persisted across deploys -- without a real database
+  # here, Subscriber signups and score history get silently wiped on every
+  # git push. Basic-256mb ($6/mo) is the cheapest instance type that doesn't
+  # expire.
+  - name: foodtracker-db
+    plan: basic-256mb
+    diskSizeGB: 1
+    databaseName: foodtracker
+    user: foodtracker
+
 services:
   - type: web
     name: foodtracker
@@ -9,3 +21,7 @@ services:
         value: "300"
       - key: SECRET_KEY
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: foodtracker-db
+          property: connectionString
